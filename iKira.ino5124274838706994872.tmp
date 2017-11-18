@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include "RTClib.h"
 #include "HX711.h"
-#include <CayenneEthernet.h>
 
 //Constantes Manejo Pines Sensores de Peso
 const int sp1kDt = 5;
@@ -9,33 +8,22 @@ const int sp1KSck = 6;
 const int sp5KDt = 8;
 const int sp5KSck = 9;
 
-//Motor
-int ENA = 10;
-int IN1 = 11;
-int IN2 = 12;
-
-//iot pin virtual
-#define VIRTUAL_PIN V0
 
 RTC_DS3231 reloj;
 HX711 sensor1K(sp1kDt, sp1KSck);
-HX711 sensor5K(sp5KDt, sp5KSck);
 
 
 float factorCalibracion1k = 1670; // this calibration factor is adjusted according to my load cell
-float factorCalibracion5k = 400;
+float unidades1K;
 
 //Flag para determinar si en el momento actual se encuentra dispensado
 bool dispensando = false;
 
-char token[] = "lp4aye9edg";
-
 void setup() {
   Serial.begin(9600);
-  //11Cayenne.begin(token);
   delay(1000);
 
-
+/*
   if (!reloj.begin()) {
     Serial.println(F("No se encontro el dispositivo de reloj"));
     while (1);
@@ -45,7 +33,7 @@ void setup() {
   if (reloj.lostPower()) {
     reloj.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-
+*/
 
   configSensoresPeso();
 
@@ -53,15 +41,18 @@ void setup() {
 
 void loop() {
   DateTime now = reloj.now();
-  //Cayenne.run();
 
-  //if ( iniciarDispensacion(now)) {
+  if ( iniciarDispensacion(now)) {
     // Aqui logica de inicio dispensacion
-  //}
- 
+  }
+
+  pesoActualSensor1K();
+  
   pruebas(now);
+
+  
   debug();
-  configMotor();
+
 }
 
 
@@ -76,10 +67,6 @@ void pruebas(DateTime now) {
   //Se dispara
   if ( now.second() == 0 || now.second() == 30) {
     Serial.println("Empezar a Dispensar");
-    encenderMotor();
-    delay(3000);
-    apagarMotor();
-    
   }
 }
 
@@ -102,35 +89,22 @@ void configSensoresPeso() {
   sensor1K.set_scale(factorCalibracion1k);
   sensor1K.tare();
   Serial.println("Configurando Sensor de Peso 1 Kg ...");
-  sensor5K.set_scale(factorCalibracion5k);
-  sensor5K.tare();
-  Serial.println("Configurando Sensor de Peso 5 Kg ...");
-  
 }
 
 
-float pesoActualSensor1K() { 
-   float unidades1K;
-   unidades1K = sensor1K.get_units(), 10;
+void pesoActualSensor1K() { 
+  unidades1K = sensor1K.get_units(), 10;
   if (unidades1K < 0)
   {
     unidades1K = 0.00;
   }
   //Retorna Valor en Gramos
-  //float gramos = unidades1K * 0.035274;  
-  return unidades1K;
-}
+  float gramos = unidades1K * 0.035274;
 
-float pesoActualSensor5K() { 
-   float unidades5K;
-   unidades5K = sensor5K.get_units(), 10;
-  if (unidades5K < 0)
-  {
-    unidades5K = 0.00;
-  }
-  //Retorna Valor en Gramos
-  //float gramos = unidades1K * 0.035274;  
-  return unidades5K;
+  Serial.println(gramos);
+  Serial.print("gr");
+  
+ // return gramos;
 }
 
 
@@ -139,40 +113,12 @@ void debug(){
       char accion =  Serial.read();
       if (accion == '1'){
            Serial.print("Valor Actual Sensor 1 KILO ");
-           Serial.print(pesoActualSensor1K());
+           //Serial.print(pesoActualSensor1K());
            Serial.println();
       }else if (accion == '5'){
-           Serial.print("Valor Actual Sensor 5 KILO ");
-           Serial.print(pesoActualSensor5K());
-           Serial.println();        
+        
       }
     }
 }
-
-CAYENNE_OUT(VIRTUAL_PIN)
-{
-  Cayenne.virtualWrite(VIRTUAL_PIN, (pesoActualSensor1K() / 500) );
-}
-
-
-void configMotor(){
-  pinMode (ENA, OUTPUT);
-  pinMode (IN1, OUTPUT);
-  pinMode (IN2, OUTPUT);
-}
-
-void encenderMotor(){
- digitalWrite (IN1, HIGH);
- digitalWrite (IN2, LOW);
- analogWrite (ENA, 255); //Velocidad motor A
-}
-
-
-void apagarMotor(){
- analogWrite (ENA, 0); 
- digitalWrite (IN1, LOW); 
-}
-
-
 
 

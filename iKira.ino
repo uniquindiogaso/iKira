@@ -2,6 +2,7 @@
 #include "RTClib.h"
 #include "HX711.h"
 #include <CayenneEthernet.h>
+#include <Servo.h>
 
 //Constantes Manejo Pines Sensores de Peso
 const int sp1kDt = 5;
@@ -10,9 +11,9 @@ const int sp5KDt = 8;
 const int sp5KSck = 9;
 
 //Motor
-int ENA = 10;
-int IN1 = 11;
-int IN2 = 12;
+Servo s;
+int motor = 3;
+
 
 //iot pin virtual
 #define VIRTUAL_PIN V0
@@ -32,8 +33,9 @@ char token[] = "lp4aye9edg";
 
 void setup() {
   Serial.begin(9600);
-  //11Cayenne.begin(token);
+  Cayenne.begin(token);
   delay(1000);
+
 
 
   if (!reloj.begin()) {
@@ -53,7 +55,7 @@ void setup() {
 
 void loop() {
   DateTime now = reloj.now();
-  //Cayenne.run();
+  Cayenne.run();
 
   //if ( iniciarDispensacion(now)) {
     // Aqui logica de inicio dispensacion
@@ -151,26 +153,31 @@ void debug(){
 
 CAYENNE_OUT(VIRTUAL_PIN)
 {
-  Cayenne.virtualWrite(VIRTUAL_PIN, (pesoActualSensor1K() / 500) );
+  Cayenne.virtualWrite(VIRTUAL_PIN, (pesoActualSensor5K() / 500) );
 }
 
 
 void configMotor(){
-  pinMode (ENA, OUTPUT);
-  pinMode (IN1, OUTPUT);
-  pinMode (IN2, OUTPUT);
+  s.attach(motor);
 }
 
 void encenderMotor(){
- digitalWrite (IN1, HIGH);
- digitalWrite (IN2, LOW);
- analogWrite (ENA, 255); //Velocidad motor A
+  s.write(0);
+  // Esperamos 1 segundo
+  delay(300);
+  
+  // Desplazamos a la posición 90º
+  s.write(100);
+  // Esperamos 1 segundo
+  delay(300);
 }
 
 
-void apagarMotor(){
- analogWrite (ENA, 0); 
- digitalWrite (IN1, LOW); 
+void apagarMotor(){  
+  // Desplazamos a la posición 180º
+  s.write(110);
+  // Esperamos 1 segundo
+  delay(300);
 }
 
 

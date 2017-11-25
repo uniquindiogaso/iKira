@@ -19,7 +19,8 @@ const int sp1kDt = 5;
 const int sp1KSck = 6;
 
 //iot pin virtual
-#define VIRTUAL_PIN V0
+#define VIRTUAL_PIN V0 //Sensor de Dispensador
+#define VIRTUAL_PIN1 V1 //Sensor de Plato
 
 //pin del servo
 int motor = 3;
@@ -94,6 +95,7 @@ void pruebas(DateTime now) {
   delay(1000);
   //Se dispara
   if ( now.second() == 0 || now.second() == 30) {
+      Serial.println("Dispensar por tiempo de espera ....");
       prepararDispensacion();
   }
 }
@@ -210,7 +212,10 @@ void consola() {
 */
 CAYENNE_OUT(VIRTUAL_PIN)
 {
+  //Escribir en cayenne el peso del Dispensador
   Cayenne.virtualWrite(VIRTUAL_PIN, (pesoActualSensor5K() / 500) );
+  //Escribir en cayenne el peso del plato
+  Cayenne.virtualWrite(VIRTUAL_PIN1, pesoActualSensor1K() );
 }
 
 /**
@@ -244,3 +249,18 @@ void apagarMotor() {
   // Esperamos 5 segundo
   delay(5000);
 }
+
+/**
+ * Recibir del Cayenne el valor del boton
+ */
+CAYENNE_IN(V4)
+{
+  if ( getValue.asInt() == 0 ){
+    Serial.println("Dispensar desde App");
+    prepararDispensacion();
+    Cayenne.virtualWrite(V4, 1 );
+  }
+}
+
+
+

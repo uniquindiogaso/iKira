@@ -45,6 +45,7 @@ void setup() {
   Cayenne.begin(token);
   delay(1000);
 
+  //Identificar si Reloj esta conectado
   if (!reloj.begin()) {
     Serial.println(F("No se encontro el dispositivo de reloj"));
     while (1);
@@ -52,28 +53,29 @@ void setup() {
 
   //Si dispositivo pierde energia se debe reconfigurar....
   if (reloj.lostPower()) {
+    //Configurar con fecha actual
     reloj.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
 
   configSensoresPeso();
+  configMotor();
 
 }
 
 void loop() {
   //Ejecutar iot
   Cayenne.run();
-    
+ //Obtener fecha actual    
   DateTime now = reloj.now();
   
-
   //if ( iniciarDispensacion(now)) {
     // Aqui logica de inicio dispensacion
   //}
  
   pruebas(now);
   debug();
-  configMotor();
+
 }
 
 

@@ -1,42 +1,49 @@
-#include <Wire.h>
-#include "RTClib.h"
-#include "HX711.h"
-#include <CayenneEthernet.h>
-#include <Servo.h>
+//Importacion de Librerias
+#include <Wire.h> 
+#include "RTClib.h" // Manejo Reloj
+#include "HX711.h" //Controlador Censores Peso
+#include <CayenneEthernet.h> //Internet de las Cosas
+#include <Servo.h> //Manejo Motor
+
+
+// Definicion Objecto Tipo Motor
+Servo s;
+//Definicion Objeto Reloj
+RTC_DS3231 reloj;
+
 
 //Constantes Manejo Pines Sensores de Peso
-const int sp1kDt = 5;
-const int sp1KSck = 6;
 const int sp5KDt = 8;
 const int sp5KSck = 9;
-
-//Motor
-Servo s;
-int motor = 3;
-
+const int sp1kDt = 5;
+const int sp1KSck = 6;
 
 //iot pin virtual
 #define VIRTUAL_PIN V0
 
-RTC_DS3231 reloj;
+//pin del servo
+int motor = 3;
+
+//seteo de pines 
 HX711 sensor1K(sp1kDt, sp1KSck);
 HX711 sensor5K(sp5KDt, sp5KSck);
 
-
-float factorCalibracion1k = 1670; // this calibration factor is adjusted according to my load cell
+//Factores de Calibracion Censores Peso
+float factorCalibracion1k = 1670; 
 float factorCalibracion5k = 400;
 
 //Flag para determinar si en el momento actual se encuentra dispensado
 bool dispensando = false;
 
+//Token Acceso Cayennes
 char token[] = "lp4aye9edg";
 
 void setup() {
+  //Indicar Velocidad de Refrezco Consola. 
   Serial.begin(9600);
+  //Establecer Conexion a iot
   Cayenne.begin(token);
   delay(1000);
-
-
 
   if (!reloj.begin()) {
     Serial.println(F("No se encontro el dispositivo de reloj"));
@@ -54,8 +61,11 @@ void setup() {
 }
 
 void loop() {
-  DateTime now = reloj.now();
+  //Ejecutar iot
   Cayenne.run();
+    
+  DateTime now = reloj.now();
+  
 
   //if ( iniciarDispensacion(now)) {
     // Aqui logica de inicio dispensacion
@@ -101,12 +111,13 @@ bool iniciarDispensacion(DateTime momentoActual) {
 
 
 void configSensoresPeso() {
+  Serial.println("Configurando Sensor de Peso 1 Kg ...");
   sensor1K.set_scale(factorCalibracion1k);
   sensor1K.tare();
-  Serial.println("Configurando Sensor de Peso 1 Kg ...");
+  Serial.println("Configurando Sensor de Peso 5 Kg ...");
   sensor5K.set_scale(factorCalibracion5k);
   sensor5K.tare();
-  Serial.println("Configurando Sensor de Peso 5 Kg ...");
+  
   
 }
 

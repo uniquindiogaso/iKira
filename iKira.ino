@@ -1,5 +1,5 @@
 //Importacion de Librerias
-#include <Wire.h> 
+#include <Wire.h>
 #include "RTClib.h" // Manejo Reloj
 #include "HX711.h" //Controlador Censores Peso
 #include <CayenneEthernet.h> //Internet de las Cosas
@@ -24,12 +24,12 @@ const int sp1KSck = 6;
 //pin del servo
 int motor = 3;
 
-//seteo de pines 
+//seteo de pines
 HX711 sensor1K(sp1kDt, sp1KSck);
 HX711 sensor5K(sp5KDt, sp5KSck);
 
 //Factores de Calibracion Censores Peso
-float factorCalibracion1k = 1670; 
+float factorCalibracion1k = 1670;
 float factorCalibracion5k = 400;
 
 //Flag para determinar si en el momento actual se encuentra dispensado
@@ -38,8 +38,11 @@ bool dispensando = false;
 //Token Acceso Cayennes
 char token[] = "lp4aye9edg";
 
+float tRef = 600;
+float pRef = 190;
+
 void setup() {
-  //Indicar Velocidad de Refrezco Consola. 
+  //Indicar Velocidad de Refrezco Consola.
   Serial.begin(9600);
   //Establecer Conexion a iot
   Cayenne.begin(token);
@@ -66,19 +69,21 @@ void setup() {
 void loop() {
   //Ejecutar iot
   Cayenne.run();
- //Obtener fecha actual    
+  //Obtener fecha actual
   DateTime now = reloj.now();
-  
+
   //if ( iniciarDispensacion(now)) {
-    // Aqui logica de inicio dispensacion
+  // prepararDispensacion();
   //}
- 
+
   pruebas(now);
-  debug();
+  consola();
 
 }
 
-
+/**
+   Metodo empleado para pruebas de ejecucion
+*/
 void pruebas(DateTime now) {
   /*
      Uso del reloj :
@@ -89,11 +94,34 @@ void pruebas(DateTime now) {
   delay(1000);
   //Se dispara
   if ( now.second() == 0 || now.second() == 30) {
-    Serial.println("Empezar a Dispensar");
-    encenderMotor();
-    delay(3000);
-    apagarMotor();
-    
+      prepararDispensacion();
+  }
+}
+
+/**
+ * Verificador si puede dispensar o no  
+ */
+void prepararDispensacion() {
+  Serial.println("Verificar si Debe Dispensar ....");
+  //Valor de Referencia
+  tRef = 600;
+  //Si hay Alimento en Dispensador Principal
+  if ( pesoActualSensor5K() >= pRef ) {
+    // Obtener la porcion faltante
+    long faltante = pRef - pesoActualSensor1K();
+    // Calcula en base al faltante un estimado de tiempo de apertura
+    tRef = (tRef * faltante) / pRef;
+
+    // Para evitar la apertura del motor cuando la porcion es vacia
+    if (tRef > 0 ) {
+      Serial.println("Abrir el Dispensador por");
+      Serial.println(tRef);
+      encenderMotor();
+      apagarMotor();
+    }
+
+  } else {
+    Serial.println(" ¡No hay alimento!, debe cargar dispensador principal ....");
   }
 }
 
@@ -103,7 +131,7 @@ void pruebas(DateTime now) {
 */
 bool iniciarDispensacion(DateTime momentoActual) {
   float hora = momentoActual.hour() + momentoActual.minute() / 60.0;
-  if ( hora == 7.00 || hora == 12.00 || hora == 17.00 ) {
+  if ( hora == 9.00 || hora == 16.00) {
     dispensando = true;
     return dispensando;
   }
@@ -111,7 +139,10 @@ bool iniciarDispensacion(DateTime momentoActual) {
 }
 
 
-
+/**
+ * Configuracion de los sensores
+ * de peso con el factorCalibracion de cada uno
+ */
 void configSensoresPeso() {
   Serial.println("Configurando Sensor de Peso 1 Kg ...");
   sensor1K.set_scale(factorCalibracion1k);
@@ -119,80 +150,97 @@ void configSensoresPeso() {
   Serial.println("Configurando Sensor de Peso 5 Kg ...");
   sensor5K.set_scale(factorCalibracion5k);
   sensor5K.tare();
-  
-  
+
+
 }
 
-
-float pesoActualSensor1K() { 
-   float unidades1K;
-   unidades1K = sensor1K.get_units(), 10;
+/**
+ * Obtener el Peso Actual del
+ * Sensor de 1 Kilo
+ */
+float pesoActualSensor1K() {
+  float unidades1K;
+  //Factor decimal
+  unidades1K = sensor1K.get_units(), 10;
   if (unidades1K < 0)
   {
     unidades1K = 0.00;
   }
-  //Retorna Valor en Gramos
-  //float gramos = unidades1K * 0.035274;  
   return unidades1K;
 }
 
-float pesoActualSensor5K() { 
-   float unidades5K;
-   unidades5K = sensor5K.get_units(), 10;
+
+/**
+ * Obtener el Peso Actual del
+ * Sensor de 5 Kilos
+ */
+float pesoActualSensor5K() {
+  float unidades5K;
+  //Factor decimal
+  unidades5K = sensor5K.get_units(), 10;
   if (unidades5K < 0)
   {
     unidades5K = 0.00;
   }
   //Retorna Valor en Gramos
-  //float gramos = unidades1K * 0.035274;  
+  //float gramos = unidades1K * 0.035274;
   return unidades5K;
 }
 
-
-void debug(){
-    if(Serial.available()){
-      char accion =  Serial.read();
-      if (accion == '1'){
-           Serial.print("Valor Actual Sensor 1 KILO ");
-           Serial.print(pesoActualSensor1K());
-           Serial.println();
-      }else if (accion == '5'){
-           Serial.print("Valor Actual Sensor 5 KILO ");
-           Serial.print(pesoActualSensor5K());
-           Serial.println();        
-      }
+/**
+ * Metodo de configuracion de Consola
+ */
+void consola() {
+  if (Serial.available()) {
+    char accion =  Serial.read();
+    if (accion == '1') {
+      Serial.print("Valor Actual Sensor 1 KILO ");
+      Serial.print(pesoActualSensor1K());
+      Serial.println();
+    } else if (accion == '5') {
+      Serial.print("Valor Actual Sensor 5 KILO ");
+      Serial.print(pesoActualSensor5K());
+      Serial.println();
     }
+  }
 }
 
+/**
+   Comunicacion Salida
+*/
 CAYENNE_OUT(VIRTUAL_PIN)
 {
   Cayenne.virtualWrite(VIRTUAL_PIN, (pesoActualSensor5K() / 500) );
 }
 
-
-void configMotor(){
+/**
+ * Configuracion del Servo en el PIN Correspondiente
+ */
+void configMotor() {
   s.attach(motor);
 }
 
-void encenderMotor(){
+
+/**
+ * Ejecucion del Motor
+ */
+void encenderMotor() {
   s.write(0);
-  // Esperamos 1 segundo
-  delay(300);
-  
-  // Desplazamos a la posición 90º
+  // Esperamos 0.6 segundo
+  delay(tRef);
+
+  // Desplazamos a la posición 100º
   s.write(100);
-  // Esperamos 1 segundo
-  delay(300);
+  // Esperamos 5 segundo
+  delay(5000);
 }
 
-
-void apagarMotor(){  
+/**
+ * Apagar Motor
+ */
+void apagarMotor() {
   // Desplazamos a la posición 180º
   s.write(110);
-  // Esperamos 1 segundo
-  delay(300);
+  // Esperamos 5 segundo
+  delay(5000);
 }
-
-
-
-
